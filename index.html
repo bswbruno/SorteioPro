@@ -254,7 +254,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <h3 id="importModalTitle">📋 Importar Participantes</h3>
-        <button class="modal-close" id="closeImportModal">✕</button>
+        <button type="button" class="modal-close" id="closeImportModal">✕</button>
       </div>
       <p class="modal-desc" id="importModalDesc">Cole os nomes abaixo, <strong>um por linha</strong>:</p>
       <textarea class="field-textarea" id="importTextarea" rows="10"
@@ -267,16 +267,24 @@
   </div>
 
   <div class="modal-backdrop hidden" id="repeatModal">
-    <div class="modal-box">
+    <div class="modal-box repeat-modal-box">
       <div class="modal-header">
-        <h3>🔁 Reinserir participantes</h3>
+        <h3 id="repeatModalTitle">👥 Participantes esgotados</h3>
         <button type="button" class="modal-close" id="closeRepeatModal">✕</button>
       </div>
-      <p class="modal-desc" id="repeatModalDesc">Ainda há etapas para sortear. Selecione os nomes que podem voltar ao sorteio:</p>
+      <p class="modal-desc" id="repeatModalDesc">
+        Todos os participantes já foram sorteados, mas ainda restam etapas para distribuir.
+        Deseja continuar o sorteio? Marque quem pode voltar à lista:
+      </p>
+      <p class="repeat-summary" id="repeatModalSummary"></p>
+      <div class="repeat-toolbar">
+        <button type="button" class="link-btn sm" id="repeatSelectAll">Marcar todos</button>
+        <button type="button" class="link-btn sm" id="repeatSelectNone">Desmarcar todos</button>
+      </div>
       <div class="repeat-list" id="repeatList"></div>
       <div class="modal-footer repeat-footer">
-        <button type="button" class="btn-ghost" id="cancelRepeat">Cancelar</button>
-        <button type="button" class="btn-add" id="confirmRepeat">Confirmar</button>
+        <button type="button" class="btn-ghost" id="cancelRepeat">Não continuar</button>
+        <button type="button" class="btn-add" id="confirmRepeat">Continuar sorteio</button>
       </div>
     </div>
   </div>

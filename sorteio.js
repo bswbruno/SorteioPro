@@ -113,18 +113,23 @@ const dom = {
   cancelImport:     $('cancelImport'),
   confirmImport:    $('confirmImport'),
 
-  repeatModal:     $('repeatModal'),
-  repeatList:      $('repeatList'),
-  repeatModalDesc: $('repeatModalDesc'),
-  closeRepeatModal:$('closeRepeatModal'),
-  cancelRepeat:    $('cancelRepeat'),
-  confirmRepeat:   $('confirmRepeat'),
+  repeatModal:      $('repeatModal'),
+  repeatModalTitle: $('repeatModalTitle'),
+  repeatList:       $('repeatList'),
+  repeatModalDesc:  $('repeatModalDesc'),
+  repeatModalSummary: $('repeatModalSummary'),
+  repeatSelectAll:  $('repeatSelectAll'),
+  repeatSelectNone: $('repeatSelectNone'),
+  closeRepeatModal: $('closeRepeatModal'),
+  cancelRepeat:     $('cancelRepeat'),
+  confirmRepeat:    $('confirmRepeat'),
 
-  confirmModal:       $('confirmModal'),
-  confirmModalTitle:  $('confirmModalTitle'),
-  confirmModalMsg:    $('confirmModalMsg'),
-  confirmModalCancel: $('confirmModalCancel'),
-  confirmModalConfirm:$('confirmModalConfirm'),
+  confirmModal:        $('confirmModal'),
+  confirmModalTitle:   $('confirmModalTitle'),
+  confirmModalMsg:     $('confirmModalMsg'),
+  closeConfirmModal:   $('closeConfirmModal'),
+  confirmModalCancel:  $('confirmModalCancel'),
+  confirmModalConfirm: $('confirmModalConfirm'),
 };
 
 /* ================================================================
@@ -358,11 +363,36 @@ function renderStages() {
    ================================================================ */
 /** Participantes ainda elegíveis (nunca repetem após sorteados) */
 function getPool() {
-  const remaining = state.names.filter(n => !state.drawnNames.includes(n));
   if (!dom.removeDrawnOpt.checked) return [...state.names];
+
+  const remaining = state.names.filter(n => !state.drawnNames.includes(n));
   if (remaining.length > 0) return remaining;
   if (state.repeatNames.length > 0) return [...state.repeatNames];
   return [];
+}
+
+/** Todos os participantes já sorteados, mas ainda há etapas pendentes */
+function needsRepeatParticipants() {
+  if (!dom.removeDrawnOpt.checked) return false;
+  if (!state.names.length || !state.stages.length) return false;
+  const allDrawn = state.drawnNames.length >= state.names.length;
+  const stagesLeft = state.drawnStages.length < state.stages.length;
+  return allDrawn && stagesLeft && getPool().length === 0;
+}
+
+function getRemainingStageCount() {
+  return Math.max(0, state.stages.length - state.drawnStages.length);
+}
+
+/** Todas as etapas já foram sorteadas — sorteio encerrado */
+function isDrawFinished() {
+  return state.stages.length > 0 && getRemainingStageCount() === 0;
+}
+
+/** Quantos pares nome+etapa ainda podem ser sorteados nesta rodada */
+function getEffectiveDrawCount() {
+  if (isDrawFinished()) return 0;
+  return Math.min(getPool().length, getRemainingStageCount());
 }
 
 /** Nomes exibidos na roda/bolhas: todos ou só os restantes */
@@ -372,40 +402,29 @@ function getDisplayNames() {
 }
 
 function getAvailableStages() {
-  let available = state.stages.filter(s => !state.drawnStages.includes(s));
-  if (available.length === 0 && state.stages.length > 0) {
-    state.drawnStages = [];
-    available = [...state.stages];
-  }
-  return available;
+  return state.stages.filter(s => !state.drawnStages.includes(s));
 }
 
 function pickStage() {
   const available = getAvailableStages();
-  if (available.length === 0) return '—';
+  if (available.length === 0) return null;
   if (dom.randomStageOpt.checked) {
     return available[Math.floor(Math.random() * available.length)];
   }
   return available[0];
 }
 
-/** Etapas únicas para sorteio em lote (cartas) */
+/** Etapas únicas para sorteio em lote (cartas) — limitado às etapas restantes */
 function pickUniqueStages(count) {
+  const available = getAvailableStages();
+  const limit = Math.min(count, available.length);
   const stages = [];
-  let available = getAvailableStages();
-  for (let i = 0; i < count; i++) {
-    if (available.length === 0) {
-      state.drawnStages = [];
-      available = [...state.stages];
-    }
-    if (available.length === 0) {
-      stages.push('—');
-      continue;
-    }
+  let pool = [...available];
+  for (let i = 0; i < limit; i++) {
     const idx = dom.randomStageOpt.checked
-      ? Math.floor(Math.random() * available.length)
+      ? Math.floor(Math.random() * pool.length)
       : 0;
-    stages.push(available.splice(idx, 1)[0]);
+    stages.push(pool.splice(idx, 1)[0]);
   }
   return stages;
 }
@@ -426,28 +445,47 @@ function updateDrawLayout() {
 function updateDrawBtn() {
   const pool = getPool();
   const isCards = state.currentMode === 'cards';
-  const ready = state.names.length > 0 && state.stages.length > 0 && pool.length > 0 && !state.isSpinning;
+  const needsRepeat = needsRepeatParticipants();
+  const finished = isDrawFinished();
+  const stagesLeft = getRemainingStageCount();
+  const drawCount = getEffectiveDrawCount();
+
+  const ready = !finished
+    && state.names.length > 0
+    && state.stages.length > 0
+    && stagesLeft > 0
+    && (drawCount > 0 || needsRepeat)
+    && !state.isSpinning;
   dom.drawBtn.disabled = !ready;
 
   const btnText = dom.drawBtn.querySelector('.btn-draw-text');
-  if (btnText) btnText.textContent = isCards && pool.length > 0 ? 'REVELAR TODAS!' : 'SORTEAR!';
+  if (btnText) {
+    if (finished) btnText.textContent = 'SORTEIO ENCERRADO';
+    else if (needsRepeat) btnText.textContent = 'ESCOLHER PARTICIPANTES';
+    else if (isCards && drawCount > 0) btnText.textContent = 'REVELAR TODAS!';
+    else btnText.textContent = 'SORTEAR!';
+  }
 
   if (state.names.length  === 0) { dom.drawStatus.textContent = 'Adicione participantes para sortear'; return; }
   if (state.stages.length === 0) { dom.drawStatus.textContent = 'Adicione etapas para sortear'; return; }
-  if (pool.length === 0) {
-    if (state.drawnNames.length === state.names.length && state.drawnStages.length < state.stages.length) {
-      dom.drawStatus.textContent = 'Sem participantes disponíveis. Reinsira nomes para as etapas restantes.';
-      return;
-    }
-    dom.drawStatus.textContent = 'Todos sorteados! Limpe o histórico para reiniciar.';
+  if (finished) {
+    dom.drawStatus.textContent = '🎉 Sorteio encerrado! Todas as etapas foram distribuídas. Limpe o histórico para reiniciar.';
+    return;
+  }
+  if (needsRepeat) {
+    dom.drawStatus.textContent = `Participantes esgotados! Restam ${stagesLeft} etapa(s) — selecione quem continua no sorteio.`;
+    return;
+  }
+  if (drawCount === 0) {
+    dom.drawStatus.textContent = 'Nenhum sorteio disponível no momento.';
     return;
   }
   if (isCards) {
-    dom.drawStatus.textContent = `${pool.length} carta(s) — sorteio único de todos os participantes restantes`;
+    dom.drawStatus.textContent = `${drawCount} carta(s) — ${stagesLeft} etapa(s) restante(s)`;
     return;
   }
   const opt = dom.removeDrawnOpt.checked ? ' • sorteados removidos da visualização' : '';
-  dom.drawStatus.textContent = `${pool.length} participante(s) restante(s) • ${state.stages.length} etapa(s)${opt}`;
+  dom.drawStatus.textContent = `${pool.length} participante(s) no pool • ${stagesLeft} etapa(s) restante(s)${opt}`;
 }
 
 /* ================================================================
@@ -474,6 +512,12 @@ function showResult(name, stage, { silent = false } = {}) {
   dom.resultStage.textContent = stage;
   dom.resultBox.classList.remove('hidden');
   fireConfetti();
+  if (isDrawFinished()) {
+    state.repeatNames = [];
+    maybeShowDrawComplete();
+  } else {
+    maybeOpenRepeatModal();
+  }
 }
 
 function showResultsBatch(pairs) {
@@ -482,6 +526,31 @@ function showResultsBatch(pairs) {
   updateDrawBtn();
   saveState();
   dom.resultBox.classList.add('hidden');
+  state.repeatNames = [];
+  if (isDrawFinished()) maybeShowDrawComplete();
+  else maybeOpenRepeatModal();
+}
+
+/** Aviso quando todas as etapas foram distribuídas */
+function maybeShowDrawComplete() {
+  if (!isDrawFinished()) return;
+  if (!dom.confirmModal.classList.contains('hidden')) return;
+  setTimeout(() => {
+    if (!isDrawFinished()) return;
+    showAlertModal(
+      `Todas as ${state.stages.length} etapa(s) foram distribuídas. O sorteio foi encerrado.\n\nLimpe o histórico para iniciar um novo sorteio.`,
+      '🎉 Sorteio encerrado'
+    );
+  }, 1200);
+}
+
+/** Abre o pop-up quando todos os participantes foram sorteados mas restam etapas */
+function maybeOpenRepeatModal() {
+  if (!needsRepeatParticipants()) return;
+  if (!dom.repeatModal.classList.contains('hidden')) return;
+  setTimeout(() => {
+    if (needsRepeatParticipants()) openRepeatModal();
+  }, 1200);
 }
 
 function renderHistory() {
@@ -697,6 +766,11 @@ function spinWheel(targetIdx, segmentCount) {
       const display = getDisplayNames();
       const winner = display[targetIdx];
       const stage  = pickStage();
+      if (!stage) {
+        state.isSpinning = false;
+        updateDrawBtn();
+        return;
+      }
       setTimeout(() => showResult(winner, stage), 420);
     }
   }
@@ -723,6 +797,13 @@ function initSlot() {
   buildReel(dom.reelStages, state.stages, 15);
 }
 
+function getSlotItemHeight(reelEl) {
+  const item = reelEl.querySelector('.slot-item');
+  if (item) return item.offsetHeight || 96;
+  const viewport = reelEl.closest('.slot-viewport');
+  return viewport ? viewport.offsetHeight : 96;
+}
+
 function buildReel(reelEl, items, reps) {
   if (items.length === 0) {
     reelEl.innerHTML = '<div class="slot-item">—</div>';
@@ -731,8 +812,9 @@ function buildReel(reelEl, items, reps) {
   const all = [];
   for (let r = 0; r < reps; r++) items.forEach(x => all.push(x));
   reelEl.innerHTML = all.map(x => `<div class="slot-item">${esc(x)}</div>`).join('');
+  const itemH = getSlotItemHeight(reelEl);
   reelEl.style.transition = 'none';
-  reelEl.style.transform  = `translateY(-${4 * items.length * 96}px)`;
+  reelEl.style.transform  = `translateY(-${4 * items.length * itemH}px)`;
   reelEl.classList.remove('stopped');
 }
 
@@ -741,7 +823,7 @@ function spinReel(reelEl, items, target, delay) {
     if (!items.length || !target) { resolve(); return; }
     const idx  = items.indexOf(target);
     if (idx === -1) { resolve(); return; }
-    const itemH = 96;
+    const itemH = getSlotItemHeight(reelEl);
     const endY  = (10 * items.length + idx) * itemH;
     setTimeout(() => {
       const dur = 1800 + Math.random() * 1200;
@@ -765,6 +847,11 @@ async function startSlotDraw() {
   const displayNames = getDisplayNames();
   const winner = pool[Math.floor(Math.random() * pool.length)];
   const stage  = pickStage();
+  if (!stage) {
+    state.isSpinning = false;
+    updateDrawBtn();
+    return;
+  }
 
   buildReel(dom.reelNames,  displayNames, 15);
   buildReel(dom.reelStages, state.stages, 15);
@@ -783,12 +870,13 @@ async function startSlotDraw() {
    MODO 3 — CARTAS DO DESTINO
    ================================================================ */
 function initCards() {
-  const pool  = getPool();
-  const count = pool.length;
+  const count = getEffectiveDrawCount();
 
   dom.cardsArena.innerHTML = '';
   if (count === 0) {
-    dom.cardsArena.innerHTML = '<p class="cards-empty-msg">Todos os participantes já foram sorteados.</p>';
+    dom.cardsArena.innerHTML = isDrawFinished()
+      ? '<p class="cards-empty-msg">Sorteio encerrado — todas as etapas foram distribuídas.</p>'
+      : '<p class="cards-empty-msg">Nenhum sorteio disponível no momento.</p>';
     return;
   }
 
@@ -809,21 +897,22 @@ function initCards() {
 }
 
 async function startCardsDraw() {
-  const pool = getPool();
-  if (!pool.length) {
+  const drawCount = getEffectiveDrawCount();
+  if (!drawCount) {
     state.isSpinning = false;
     updateDrawBtn();
     return;
   }
 
   const cards = [...dom.cardsArena.querySelectorAll('.destiny-card')];
-  if (cards.length !== pool.length) {
+  if (cards.length !== drawCount) {
     initCards();
     return startCardsDraw();
   }
 
-  const names  = shuffleArray(pool);
-  const stages = pickUniqueStages(names.length);
+  const pool = getPool();
+  const names  = shuffleArray(pool).slice(0, drawCount);
+  const stages = pickUniqueStages(drawCount);
   const pairs  = names.map((name, i) => ({ name, stage: stages[i] }));
 
   cards.forEach(c => {
@@ -984,6 +1073,11 @@ async function startBubblesDraw() {
   }
   const winner = pool[Math.floor(Math.random() * pool.length)];
   const stage  = pickStage();
+  if (!stage) {
+    state.isSpinning = false;
+    updateDrawBtn();
+    return;
+  }
 
   state.bubbles.forEach((b, i) => {
     if (b.name !== winner) {
@@ -1011,21 +1105,24 @@ async function startBubblesDraw() {
    ================================================================ */
 function handleDraw() {
   if (state.isSpinning) return;
+  if (isDrawFinished() || getRemainingStageCount() === 0) return;
+
   const pool = getPool();
+  const drawCount = getEffectiveDrawCount();
+
+  if (!drawCount && !needsRepeatParticipants()) return;
 
   if (!pool.length) {
-    if (state.drawnNames.length === state.names.length && state.drawnStages.length < state.stages.length) {
-      openRepeatModal();
-    }
+    if (needsRepeatParticipants()) openRepeatModal();
     return;
   }
 
   if (pool.length === 1 && state.currentMode !== 'cards') {
+    const stage = pickStage();
+    if (!stage) return;
     state.isSpinning = true;
     dom.resultBox.classList.add('hidden');
-    const winner = pool[0];
-    const stage = pickStage();
-    showResult(winner, stage);
+    showResult(pool[0], stage);
     state.isSpinning = false;
     return;
   }
@@ -1109,15 +1206,24 @@ function confirmModalNo() {
 }
 
 function openRepeatModal() {
-  const remainingStages = state.stages.length - state.drawnStages.length;
-  if (remainingStages <= 0 || !state.names.length) {
-    return;
-  }
+  const remainingStages = getRemainingStageCount();
+  if (remainingStages <= 0 || !state.names.length) return;
 
   openModal(dom.repeatModal);
-  dom.repeatModalDesc.textContent = `Ainda restam ${remainingStages} etapa(s). Selecione os nomes que podem voltar ao sorteio:`;
 
-  dom.repeatList.innerHTML = state.names.map((name, index) => {
+  if (dom.repeatModalTitle) {
+    dom.repeatModalTitle.textContent = '👥 Participantes esgotados';
+  }
+  if (dom.repeatModalDesc) {
+    dom.repeatModalDesc.textContent =
+      `Todos os ${state.names.length} participante(s) já foram sorteados, mas ainda restam ${remainingStages} etapa(s) para distribuir. Deseja continuar o sorteio? Marque abaixo quem pode voltar à lista:`;
+  }
+  if (dom.repeatModalSummary) {
+    dom.repeatModalSummary.textContent =
+      `${state.names.length} participante(s) cadastrado(s) • ${remainingStages} etapa(s) pendente(s)`;
+  }
+
+  dom.repeatList.innerHTML = state.names.map(name => {
     const checked = state.repeatNames.length === 0 || state.repeatNames.includes(name);
     return `
       <label class="repeat-item">
@@ -1126,6 +1232,14 @@ function openRepeatModal() {
       </label>`;
   }).join('');
 
+  updateRepeatConfirmState();
+  dom.confirmRepeat?.focus();
+}
+
+function setRepeatCheckboxes(checked) {
+  dom.repeatList.querySelectorAll('input[name="repeatName"]').forEach(el => {
+    el.checked = checked;
+  });
   updateRepeatConfirmState();
 }
 
@@ -1137,14 +1251,15 @@ function updateRepeatConfirmState() {
 function confirmRepeatSelection() {
   const selected = [...dom.repeatList.querySelectorAll('input[name="repeatName"]:checked')].map(el => el.value);
   state.repeatNames = selected.filter(name => state.names.includes(name));
-  if (!state.repeatNames.length) {
-    return;
-  }
+  if (!state.repeatNames.length) return;
+
   closeRepeatModal();
   updateDrawBtn();
+  saveState();
   if (state.currentMode === 'wheel') drawWheel();
   if (state.currentMode === 'slot') initSlot();
   if (state.currentMode === 'bubbles') initBubbles();
+  if (state.currentMode === 'cards') initCards();
 }
 
 function openImport(target) {
@@ -1290,6 +1405,8 @@ function bindEvents() {
   dom.cancelRepeat.addEventListener('click', closeRepeatModal);
   dom.confirmRepeat.addEventListener('click', confirmRepeatSelection);
   dom.repeatList.addEventListener('change', updateRepeatConfirmState);
+  dom.repeatSelectAll?.addEventListener('click', () => setRepeatCheckboxes(true));
+  dom.repeatSelectNone?.addEventListener('click', () => setRepeatCheckboxes(false));
 
   dom.closeConfirmModal.addEventListener('click', closeConfirmModal);
   dom.confirmModalCancel.addEventListener('click', confirmModalNo);
@@ -1375,7 +1492,8 @@ function bindEvents() {
       if (!dom.importModal.classList.contains('hidden')) return closeImport();
     }
     if (e.key === 'Enter' && !dom.confirmModal.classList.contains('hidden')) {
-      confirmModalYes();
+      const tag = document.activeElement?.tagName;
+      if (tag !== 'TEXTAREA' && tag !== 'INPUT') confirmModalYes();
     }
   });
 
@@ -1385,6 +1503,7 @@ function bindEvents() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (state.currentMode === 'wheel')   initWheel();
+      if (state.currentMode === 'slot')    initSlot();
       if (state.currentMode === 'bubbles') initBubbles();
     }, 220);
   });
