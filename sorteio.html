@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SorteioPro 🎲</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="sorteio.css" />
+</head>
+<body>
+
+  <!-- Background Orbs -->
+  <div class="bg-effects" aria-hidden="true">
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+  </div>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🎲</div>
+        <div class="logo-text-group">
+          <span class="logo-name">SorteioPro</span>
+          <span class="logo-tagline">Sistema de Sorteio Interativo</span>
+        </div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="Alternar tema claro/escuro">
+        <span class="t-sun">☀️</span>
+        <span class="t-moon">🌙</span>
+        <div class="t-thumb"></div>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="setup">⚙️ Configurar</button>
+      <button class="tab-btn" data-tab="draw">🎯 Sortear</button>
+    </div>
+
+    <!-- ============================================================
+         SETUP PANEL
+    ============================================================ -->
+    <section class="panel" id="panel-setup">
+      <div class="setup-grid">
+
+        <!-- NAMES CARD -->
+        <div class="setup-card">
+          <div class="setup-card-header">
+            <div class="setup-card-title">
+              <span class="setup-icon">👥</span>
+              <h2>Participantes</h2>
+            </div>
+            <span class="count-badge" id="nameCount">0</span>
+          </div>
+          <div class="add-row">
+            <input type="text" id="nameInput" class="field-input" placeholder="Nome do participante..." maxlength="50" autocomplete="off" />
+            <button class="btn-add" id="addNameBtn" title="Adicionar">+</button>
+          </div>
+          <div class="items-list" id="nameList">
+            <div class="list-empty">
+              <span>🧑</span>
+              <p>Nenhum participante ainda.<br />Adicione nomes acima!</p>
+              <button class="link-btn sample-btn" id="loadSampleNames">Carregar exemplos</button>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="link-btn" id="importNamesBtn">📋 Importar lista</button>
+            <button class="link-btn danger" id="clearNamesBtn">🗑️ Limpar tudo</button>
+          </div>
+        </div>
+
+        <!-- STAGES CARD -->
+        <div class="setup-card">
+          <div class="setup-card-header">
+            <div class="setup-card-title">
+              <span class="setup-icon">📋</span>
+              <h2>Etapas</h2>
+            </div>
+            <span class="count-badge secondary" id="stageCount">0</span>
+          </div>
+          <div class="add-row">
+            <input type="text" id="stageInput" class="field-input" placeholder="Ex: Apresentação, Dinâmica..." maxlength="60" autocomplete="off" />
+            <button class="btn-add secondary" id="addStageBtn" title="Adicionar">+</button>
+          </div>
+          <div class="items-list" id="stageList">
+            <div class="list-empty">
+              <span>📝</span>
+              <p>Nenhuma etapa ainda.<br />Adicione etapas acima!</p>
+              <button class="link-btn sample-btn" id="loadSampleStages">Carregar exemplos</button>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="link-btn danger" id="clearStagesBtn">🗑️ Limpar tudo</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="setup-go-wrap">
+        <button class="btn-go" id="goDrawBtn">Ir para o Sorteio →</button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DRAW PANEL
+    ============================================================ -->
+    <section class="panel hidden" id="panel-draw">
+
+      <!-- MODE SELECTOR -->
+      <div class="mode-selector">
+        <button class="mode-btn active" data-mode="wheel">
+          <span class="mode-icon">🎡</span>
+          <span class="mode-label">Roda da Sorte</span>
+        </button>
+        <button class="mode-btn" data-mode="slot">
+          <span class="mode-icon">🎰</span>
+          <span class="mode-label">Caça-Níquel</span>
+        </button>
+        <button class="mode-btn" data-mode="cards">
+          <span class="mode-icon">🃏</span>
+          <span class="mode-label">Cartas do Destino</span>
+        </button>
+        <button class="mode-btn" data-mode="bubbles">
+          <span class="mode-icon">🫧</span>
+          <span class="mode-label">Bolhas Mágicas</span>
+        </button>
+      </div>
+
+      <!-- ARENA + RESULTADO (lado a lado; cartas usam só histórico compacto) -->
+      <div class="draw-layout" id="drawLayout">
+
+      <!-- DRAW ARENA -->
+      <div class="draw-arena">
+
+        <!-- WHEEL MODE -->
+        <div class="draw-mode" id="mode-wheel">
+          <div class="wheel-wrap">
+            <div class="wheel-pointer" aria-hidden="true">▼</div>
+            <canvas id="wheelCanvas" width="460" height="460"></canvas>
+          </div>
+        </div>
+
+        <!-- SLOT MACHINE MODE -->
+        <div class="draw-mode hidden" id="mode-slot">
+          <div class="slot-machine">
+            <div class="slot-lights-row top">
+              <span class="slot-light"></span><span class="slot-light"></span>
+              <span class="slot-light"></span><span class="slot-light"></span>
+              <span class="slot-light"></span><span class="slot-light"></span>
+            </div>
+            <div class="slot-body">
+              <div class="slot-reel-col">
+                <div class="slot-reel-label">PARTICIPANTE</div>
+                <div class="slot-viewport">
+                  <div class="slot-reel" id="reelNames"></div>
+                </div>
+              </div>
+              <div class="slot-divider">
+                <span>★</span><span>★</span><span>★</span>
+              </div>
+              <div class="slot-reel-col">
+                <div class="slot-reel-label">ETAPA</div>
+                <div class="slot-viewport">
+                  <div class="slot-reel" id="reelStages"></div>
+                </div>
+              </div>
+            </div>
+            <div class="slot-lights-row bot">
+              <span class="slot-light"></span><span class="slot-light"></span>
+              <span class="slot-light"></span><span class="slot-light"></span>
+              <span class="slot-light"></span><span class="slot-light"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARDS MODE -->
+        <div class="draw-mode hidden" id="mode-cards">
+          <div class="cards-arena" id="cardsArena"></div>
+        </div>
+
+        <!-- BUBBLES MODE -->
+        <div class="draw-mode hidden" id="mode-bubbles">
+          <canvas id="bubblesCanvas"></canvas>
+          <p class="bubbles-hint">Pressione SORTEAR para revelar o vencedor!</p>
+        </div>
+
+      </div><!-- /draw-arena -->
+
+      <!-- RESULT BOX (ao lado da arena; oculto em Cartas do Destino) -->
+      <aside class="result-box hidden" id="resultBox" aria-live="polite">
+        <div class="result-inner">
+          <div class="result-trophy">🏆</div>
+          <div class="result-label-top">SORTEADO!</div>
+          <div class="result-name" id="resultName">—</div>
+          <div class="result-divider">
+            <span>⬇</span>
+            <span>responsável pela etapa</span>
+            <span>⬇</span>
+          </div>
+          <div class="result-stage" id="resultStage">—</div>
+          <button class="result-close-btn" id="closeResult" title="Fechar">✕</button>
+        </div>
+        <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+      </aside>
+
+      </div><!-- /draw-layout -->
+
+      <!-- DRAW CONTROLS -->
+      <div class="draw-controls">
+        <div class="draw-options">
+          <label class="opt-toggle">
+            <input type="checkbox" id="removeDrawnOpt" checked />
+            <span class="opt-slider"></span>
+            <span class="opt-label">Remover sorteados</span>
+          </label>
+          <label class="opt-toggle">
+            <input type="checkbox" id="randomStageOpt" checked />
+            <span class="opt-slider"></span>
+            <span class="opt-label">Etapa aleatória</span>
+          </label>
+        </div>
+        <button class="btn-draw" id="drawBtn" disabled>
+          <div class="btn-draw-dice">🎲</div>
+          <div class="btn-draw-text">SORTEAR!</div>
+        </button>
+        <div class="draw-status" id="drawStatus">Configure participantes e etapas primeiro</div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="history-card">
+        <div class="history-header">
+          <h3>📜 Histórico de Sorteios</h3>
+          <button class="link-btn danger sm" id="clearHistoryBtn">Limpar</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">Nenhum sorteio realizado ainda...</div>
+        </div>
+      </div>
+
+    </section><!-- /panel-draw -->
+
+  </main>
+
+  <!-- ===== IMPORT MODAL ===== -->
+  <div class="modal-backdrop hidden" id="importModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📋 Importar Participantes</h3>
+        <button class="modal-close" id="closeImportModal">✕</button>
+      </div>
+      <p class="modal-desc">Cole os nomes abaixo, <strong>um por linha</strong>:</p>
+      <textarea class="field-textarea" id="importTextarea" rows="10"
+        placeholder="João Silva&#10;Maria Santos&#10;Carlos Ferreira&#10;Ana Costa&#10;Pedro Alves&#10;..."></textarea>
+      <div class="modal-footer">
+        <button class="btn-ghost" id="cancelImport">Cancelar</button>
+        <button class="btn-add" id="confirmImport">Importar Nomes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sorteio.js"></script>
+</body>
+</html>
