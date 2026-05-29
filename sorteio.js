@@ -85,6 +85,8 @@ const dom = {
   modeBubbles:     $('mode-bubbles'),
 
   wheelCanvas:     $('wheelCanvas'),
+  wheelDrawBtn:    $('wheelDrawBtn'),
+  slotDrawBtn:     $('slotDrawBtn'),
   reelNames:       $('reelNames'),
   reelStages:      $('reelStages'),
   cardsArena:      $('cardsArena'),
@@ -442,6 +444,23 @@ function updateDrawLayout() {
   dom.drawLayout.classList.toggle('layout-cards', state.currentMode === 'cards');
 }
 
+function getDrawButtonLabel(finished, needsRepeat, isCards, drawCount) {
+  if (finished) return 'SORTEIO ENCERRADO';
+  if (needsRepeat) return 'ESCOLHER PARTICIPANTES';
+  if (isCards && drawCount > 0) return 'REVELAR TODAS!';
+  return 'SORTEAR!';
+}
+
+function syncArenaDrawButtons(ready, label) {
+  [dom.wheelDrawBtn, dom.slotDrawBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = !ready;
+    btn.setAttribute('aria-label', label);
+    const lbl = btn.querySelector('.arena-draw-label');
+    if (lbl) lbl.textContent = label;
+  });
+}
+
 function updateDrawBtn() {
   const pool = getPool();
   const isCards = state.currentMode === 'cards';
@@ -456,15 +475,13 @@ function updateDrawBtn() {
     && stagesLeft > 0
     && (drawCount > 0 || needsRepeat)
     && !state.isSpinning;
+
+  const label = getDrawButtonLabel(finished, needsRepeat, isCards, drawCount);
   dom.drawBtn.disabled = !ready;
+  syncArenaDrawButtons(ready, label);
 
   const btnText = dom.drawBtn.querySelector('.btn-draw-text');
-  if (btnText) {
-    if (finished) btnText.textContent = 'SORTEIO ENCERRADO';
-    else if (needsRepeat) btnText.textContent = 'ESCOLHER PARTICIPANTES';
-    else if (isCards && drawCount > 0) btnText.textContent = 'REVELAR TODAS!';
-    else btnText.textContent = 'SORTEAR!';
-  }
+  if (btnText) btnText.textContent = label;
 
   if (state.names.length  === 0) { dom.drawStatus.textContent = 'Adicione participantes para sortear'; return; }
   if (state.stages.length === 0) { dom.drawStatus.textContent = 'Adicione etapas para sortear'; return; }
@@ -630,6 +647,16 @@ function initWheel() {
   state.wheelCx  = size / 2;
   state.wheelCy  = size / 2;
   state.wheelR   = size / 2 - 16;
+
+  const hubBtn = dom.wheelDrawBtn;
+  if (hubBtn) {
+    const hubSize = Math.max(44, Math.min(72, size * 0.15));
+    hubBtn.style.width  = `${hubSize}px`;
+    hubBtn.style.height = `${hubSize}px`;
+    const icon = hubBtn.querySelector('.arena-draw-icon');
+    if (icon) icon.style.fontSize = `${Math.max(18, hubSize * 0.42)}px`;
+  }
+
   drawWheel();
 }
 
@@ -714,23 +741,19 @@ function drawWheel() {
     ctx.fill();
   }
 
-  // Hub central
-  const hub = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, 34);
+  // Hub central (fundo decorativo — botão HTML fica por cima)
+  const hubR = Math.max(22, R * 0.14);
+  const hub = ctx.createRadialGradient(cx - hubR * .18, cy - hubR * .18, 2, cx, cy, hubR);
   hub.addColorStop(0, '#fff');
   hub.addColorStop(.5, '#FFE66D');
   hub.addColorStop(1, '#FF6B35');
   ctx.beginPath();
-  ctx.arc(cx, cy, 34, 0, 2 * Math.PI);
+  ctx.arc(cx, cy, hubR, 0, 2 * Math.PI);
   ctx.fillStyle = hub;
   ctx.fill();
   ctx.strokeStyle = isDark() ? '#090914' : '#fff';
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = Math.max(2, hubR * 0.1);
   ctx.stroke();
-
-  ctx.textAlign = 'center';
-  ctx.shadowBlur = 0;
-  ctx.font = '21px serif';
-  ctx.fillText('🎲', cx, cy + 8);
 }
 
 function spinWheel(targetIdx, segmentCount) {
@@ -948,29 +971,53 @@ async function startCardsDraw() {
 /* ================================================================
    MODO 4 — BOLHAS MÁGICAS (Canvas)
    ================================================================ */
-function initBubbles() {
+function getBubblesCanvasSize() {
   const canvas = dom.bubblesCanvas;
   const parent = canvas.parentElement;
-  const W = parent.offsetWidth  || 600;
-  const H = 400;
+  const W = Math.max(280, Math.floor(parent.clientWidth) || 600);
+  const isCompact = W <= 480;
+  const H = isCompact
+    ? Math.floor(W * 0.68)
+    : Math.min(400, Math.floor(W * 0.62));
+  return { W, H };
+}
+
+function calcBubbleRadius(name, W, H, count) {
+  const minDim = Math.min(W, H);
+  const isCompact = W <= 480;
+  const maxR = minDim * (isCompact ? 0.105 : 0.14);
+  const minR = minDim * 0.048;
+  const byCount = Math.sqrt((W * H) / (Math.max(count, 1) * 2.6));
+  const byName = byCount + Math.min(name.length * 0.5, 5);
+  return Math.max(minR, Math.min(byName, maxR));
+}
+
+function initBubbles() {
+  const canvas = dom.bubblesCanvas;
+  const { W, H } = getBubblesCanvasSize();
   canvas.width  = W;
   canvas.height = H;
 
   const display = getDisplayNames();
-  state.bubbles = display.map((name, i) => ({
-    name,
-    x:  60 + Math.random() * (W - 120),
-    y:  60 + Math.random() * (H - 120),
-    r:  Math.min(50 + name.length * 2.5, 74),
-    vx: (Math.random() - .5) * 1.6,
-    vy: (Math.random() - .5) * 1.6,
-    color: BUBBLE_COLORS[i % BUBBLE_COLORS.length],
-    pulse: Math.random() * Math.PI * 2,
-    popping:  false,
-    popT:     0,
-    isWinner: false,
-    alpha: 1,
-  }));
+  const n = Math.max(display.length, 1);
+
+  state.bubbles = display.map((name, i) => {
+    const r = calcBubbleRadius(name, W, H, n);
+    return {
+      name,
+      x:  r + Math.random() * Math.max(W - 2 * r, r),
+      y:  r + Math.random() * Math.max(H - 2 * r, r),
+      r,
+      vx: (Math.random() - .5) * (W <= 480 ? 1.1 : 1.6),
+      vy: (Math.random() - .5) * (W <= 480 ? 1.1 : 1.6),
+      color: BUBBLE_COLORS[i % BUBBLE_COLORS.length],
+      pulse: Math.random() * Math.PI * 2,
+      popping:  false,
+      popT:     0,
+      isWinner: false,
+      alpha: 1,
+    };
+  });
 
   if (state.bubbleAnimId) cancelAnimationFrame(state.bubbleAnimId);
   tickBubbles();
@@ -1090,9 +1137,11 @@ async function startBubblesDraw() {
 
   const wb = state.bubbles.find(b => b.name === winner);
   if (wb) {
+    const canvas = dom.bubblesCanvas;
+    const minDim = Math.min(canvas.width, canvas.height);
     wb.isWinner = true;
     wb.vx = 0; wb.vy = 0;
-    wb.r = 75;
+    wb.r = Math.min(Math.max(wb.r * 1.2, minDim * 0.11), minDim * 0.17);
   }
 
   await sleep(700);
@@ -1441,6 +1490,11 @@ function bindEvents() {
 
   // Sortear
   dom.drawBtn.addEventListener('click', handleDraw);
+  dom.wheelDrawBtn?.addEventListener('click', handleDraw);
+  dom.slotDrawBtn?.addEventListener('click', handleDraw);
+  dom.bubblesCanvas?.addEventListener('click', () => {
+    if (state.currentMode === 'bubbles') handleDraw();
+  });
 
   // Fechar resultado
   dom.closeResult.addEventListener('click', () => dom.resultBox.classList.add('hidden'));

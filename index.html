@@ -145,7 +145,12 @@
         <div class="draw-mode" id="mode-wheel">
           <div class="wheel-wrap">
             <div class="wheel-pointer" aria-hidden="true">▼</div>
-            <canvas id="wheelCanvas" width="460" height="460"></canvas>
+            <div class="wheel-canvas-wrap">
+              <canvas id="wheelCanvas" width="460" height="460"></canvas>
+              <button type="button" class="wheel-hub-btn arena-draw-btn" id="wheelDrawBtn" title="Sortear" disabled>
+                <span class="arena-draw-icon" aria-hidden="true">🎲</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -174,6 +179,10 @@
                 </div>
               </div>
             </div>
+            <button type="button" class="slot-draw-btn arena-draw-btn" id="slotDrawBtn" title="Sortear" disabled>
+              <span class="arena-draw-icon" aria-hidden="true">🎰</span>
+              <span class="arena-draw-label">SORTEAR!</span>
+            </button>
             <div class="slot-lights-row bot">
               <span class="slot-light"></span><span class="slot-light"></span>
               <span class="slot-light"></span><span class="slot-light"></span>
@@ -190,7 +199,7 @@
         <!-- BUBBLES MODE -->
         <div class="draw-mode hidden" id="mode-bubbles">
           <canvas id="bubblesCanvas"></canvas>
-          <p class="bubbles-hint">Pressione SORTEAR para revelar o vencedor!</p>
+          <p class="bubbles-hint">Toque em SORTEAR ou nas bolhas para revelar o vencedor!</p>
         </div>
 
       </div><!-- /draw-arena -->

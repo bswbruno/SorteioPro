@@ -557,6 +557,15 @@ input, textarea { font-family: inherit; }
    ================================================================ */
 .wheel-wrap {
   display: flex; flex-direction: column; align-items: center;
+  width: 100%;
+}
+
+.wheel-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  justify-content: center;
 }
 
 .wheel-pointer {
@@ -586,6 +595,54 @@ input, textarea { font-family: inherit; }
 @keyframes pointer-spin-excited {
   from { transform: translateY(-4px) scale(1.15); }
   to   { transform: translateY(4px) scale(.9); }
+}
+
+/* Botão dado no centro da roleta */
+.wheel-hub-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.9);
+  background: linear-gradient(145deg, #fff, #FFE66D 45%, #FF6B35);
+  box-shadow: 0 4px 18px rgba(255,107,53,.45), inset 0 2px 6px rgba(255,255,255,.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 6;
+  transition: transform .2s, box-shadow .2s, opacity .2s;
+}
+.wheel-hub-btn .arena-draw-icon {
+  font-size: 1.65rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.2));
+}
+.wheel-hub-btn:hover:not(:disabled) {
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 6px 28px var(--primary-glow), inset 0 2px 6px rgba(255,255,255,.6);
+}
+.wheel-hub-btn:active:not(:disabled) {
+  transform: translate(-50%, -50%) scale(.96);
+}
+.wheel-hub-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(.25);
+}
+.spinning .wheel-hub-btn:not(:disabled) {
+  animation: hub-spin-pulse .35s ease-in-out infinite alternate;
+}
+@keyframes hub-spin-pulse {
+  from { transform: translate(-50%, -50%) scale(1); }
+  to   { transform: translate(-50%, -50%) scale(1.12); }
+}
+
+/* Botões de sortear dentro das arenas */
+.arena-draw-btn {
+  font-family: inherit;
+  cursor: pointer;
+}
+.arena-draw-btn:disabled {
+  cursor: not-allowed;
 }
 
 /* ================================================================
@@ -677,6 +734,35 @@ input, textarea { font-family: inherit; }
   50%{ transform:scale(1.2) rotate(20deg); }
 }
 
+.slot-draw-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .15rem;
+  width: calc(100% - 2.5rem);
+  margin: .25rem auto .85rem;
+  padding: .75rem 1rem;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  box-shadow: 0 6px 24px var(--primary-glow);
+  transition: transform .25s, box-shadow .25s, opacity .25s;
+}
+.slot-draw-btn .arena-draw-icon { font-size: 1.6rem; line-height: 1; }
+.slot-draw-btn .arena-draw-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 3px;
+  color: #fff;
+}
+.slot-draw-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 32px var(--primary-glow);
+}
+.slot-draw-btn:active:not(:disabled) { transform: translateY(0) scale(.98); }
+.slot-draw-btn:disabled { opacity: .45; }
+
 /* ================================================================
    CARDS MODE
    ================================================================ */
@@ -761,8 +847,15 @@ input, textarea { font-family: inherit; }
 /* ================================================================
    BUBBLES MODE
    ================================================================ */
-#mode-bubbles { position: relative; flex-direction: column; gap: .75rem; }
-#bubblesCanvas { width: 100%; height: 400px; display: block; border-radius: 14px; }
+#mode-bubbles { position: relative; flex-direction: column; gap: .75rem; width: 100%; }
+#bubblesCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 .bubbles-hint {
   font-size: .78rem; font-weight: 700; color: var(--text-muted);
   background: var(--bg-surface);
@@ -1140,7 +1233,8 @@ input, textarea { font-family: inherit; }
   .result-box { min-height: 240px; }
   .mode-selector { gap: .6rem; }
   .mode-btn { padding: .9rem .6rem; }
-  #bubblesCanvas { height: 320px; }
+  .slot-draw-btn { width: calc(100% - 2rem); margin-bottom: .65rem; padding: .65rem .85rem; }
+  .slot-draw-btn .arena-draw-label { font-size: 1.05rem; }
   .slot-body { gap: .75rem; padding: 1rem; }
   .slot-viewport { height: 84px; }
   .slot-item { height: 84px; font-size: .95rem; }
@@ -1230,7 +1324,16 @@ input, textarea { font-family: inherit; }
   }
   .repeat-list { max-height: min(220px, 40vh); }
 
-  #bubblesCanvas { height: 260px; }
+  .wheel-hub-btn { border-width: 2px; }
+
+  .slot-draw-btn {
+    width: calc(100% - 1.5rem);
+    margin: .15rem auto .7rem;
+    padding: .6rem .75rem;
+  }
+  .slot-draw-btn .arena-draw-icon { font-size: 1.35rem; }
+  .slot-draw-btn .arena-draw-label { font-size: .95rem; letter-spacing: 2px; }
+
   .bubbles-hint { font-size: .7rem; white-space: normal; text-align: center; max-width: 90%; }
 
   .destiny-card { width: 88px; height: 130px; }
