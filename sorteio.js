@@ -44,7 +44,7 @@ const BUBBLE_COLORS = [
   'rgba(77,150,255,.75)','rgba(107,203,119,.75)',
 ];
 const SAMPLE_NAMES  = ['Bruno','Lucas Marinho','Gabriel Bonfim','Lucas Correa','Henrique', 'Ryan'];
-const SAMPLE_STAGES = ['Ambulatório','Emergência','Centro cirúrgico','Internação','Votação'];
+const SAMPLE_STAGES = ['Ambulatório','Emergência','Centro cirúrgico','Internação'];
 const LS_KEY = 'sorteioPro_v2';
 
 /* ───────────────────────────────────────────────
