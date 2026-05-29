@@ -44,7 +44,7 @@ const BUBBLE_COLORS = [
   'rgba(77,150,255,.75)','rgba(107,203,119,.75)',
 ];
 const SAMPLE_NAMES  = ['Bruno','Lucas Marinho','Gabriel Bonfim','Lucas Correa','Henrique', 'Ryan'];
-const SAMPLE_STAGES = ['Ambulatório','Emergência','Centro cirúrgico','Internação'];
+const SAMPLE_STAGES = ['Ambulatório','Emergência','Centro cirúrgico','Internação', 'Admissão', 'Estoque', 'Outros'];
 const LS_KEY = 'sorteioPro_v2';
 
 /* ───────────────────────────────────────────────
@@ -1016,18 +1016,34 @@ function confirmImport() {
    EXEMPLOS
    ================================================================ */
 function loadSampleNamesHandler() {
-  SAMPLE_NAMES.forEach(n => { if (!state.names.includes(n)) state.names.push(n); });
+  SAMPLE_NAMES.forEach(n => {
+    if (!state.names.includes(n)) {
+      state.names.push(n);
+    }
+  });
+
   renderNames();
   updateDrawBtn();
-  if (state.currentMode === 'wheel') drawWheel();
+
+  if (state.currentMode === 'wheel') {
+    drawWheel();
+  }
+
   saveState();
 }
+
 function loadSampleStagesHandler() {
-  SAMPLE_STAGES.forEach(s => state.stages.push(s));
+  SAMPLE_STAGES.forEach(s => {
+    if (!state.stages.includes(s)) {
+      state.stages.push(s);
+    }
+  });
+
   renderStages();
   updateDrawBtn();
   saveState();
 }
+
 
 /* ================================================================
    UTILITÁRIOS
