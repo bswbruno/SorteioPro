@@ -14,8 +14,11 @@ const state = {
   history:      [],   // histórico de sorteios
   drawnNames:   [],   // participantes já sorteados (nunca repetem)
   drawnStages:  [],   // etapas já usadas no ciclo atual
+  repeatNames:  [],   // nomes reinseridos para etapas extras
   currentMode:  'wheel',
   isSpinning:   false,
+  importTarget: 'names',
+  pendingConfirm: null,
 
   // Wheel
   wheelAngle:   0,
@@ -65,14 +68,15 @@ const dom = {
   clearNamesBtn:   $('clearNamesBtn'),
   loadSampleNames: $('loadSampleNames'),
 
-  stageInput:      $('stageInput'),
-  addStageBtn:     $('addStageBtn'),
-  stageList:       $('stageList'),
-  stageCount:      $('stageCount'),
-  clearStagesBtn:  $('clearStagesBtn'),
-  loadSampleStages:$('loadSampleStages'),
+  stageInput:       $('stageInput'),
+  addStageBtn:      $('addStageBtn'),
+  stageList:        $('stageList'),
+  stageCount:       $('stageCount'),
+  importStagesBtn:  $('importStagesBtn'),
+  clearStagesBtn:   $('clearStagesBtn'),
+  loadSampleStages: $('loadSampleStages'),
 
-  goDrawBtn:       $('goDrawBtn'),
+  goDrawBtn:        $('goDrawBtn'),
   modeBtns:        document.querySelectorAll('.mode-btn'),
 
   modeWheel:       $('mode-wheel'),
@@ -103,9 +107,24 @@ const dom = {
 
   importModal:     $('importModal'),
   importTextarea:  $('importTextarea'),
-  closeImportModal:$('closeImportModal'),
-  cancelImport:    $('cancelImport'),
-  confirmImport:   $('confirmImport'),
+  importModalTitle: $('importModalTitle'),
+  importModalDesc:  $('importModalDesc'),
+  closeImportModal: $('closeImportModal'),
+  cancelImport:     $('cancelImport'),
+  confirmImport:    $('confirmImport'),
+
+  repeatModal:     $('repeatModal'),
+  repeatList:      $('repeatList'),
+  repeatModalDesc: $('repeatModalDesc'),
+  closeRepeatModal:$('closeRepeatModal'),
+  cancelRepeat:    $('cancelRepeat'),
+  confirmRepeat:   $('confirmRepeat'),
+
+  confirmModal:       $('confirmModal'),
+  confirmModalTitle:  $('confirmModalTitle'),
+  confirmModalMsg:    $('confirmModalMsg'),
+  confirmModalCancel: $('confirmModalCancel'),
+  confirmModalConfirm:$('confirmModalConfirm'),
 };
 
 /* ================================================================
@@ -114,11 +133,12 @@ const dom = {
 function saveState() {
   try {
     const data = {
-      names:   state.names,
-      stages:  state.stages,
-      history: state.history.slice(0, 100),
-      drawnNames: state.drawnNames,
-      drawnStages: state.drawnStages,
+      names:        state.names,
+      stages:       state.stages,
+      history:      state.history.slice(0, 100),
+      drawnNames:   state.drawnNames,
+      drawnStages:  state.drawnStages,
+      repeatNames:  state.repeatNames,
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   } catch(_) {}
@@ -134,6 +154,7 @@ function loadState() {
     state.history     = data.history     || [];
     state.drawnNames  = data.drawnNames  || [];
     state.drawnStages = data.drawnStages || [];
+    state.repeatNames = data.repeatNames || [];
     syncDrawnFromHistory();
   } catch(_) {}
 }
@@ -150,6 +171,10 @@ function syncDrawnFromHistory() {
       }
     });
   }
+}
+
+function sanitizeRepeatNames() {
+  state.repeatNames = state.repeatNames.filter(n => state.names.includes(n));
 }
 
 /* ================================================================
@@ -202,6 +227,7 @@ function addName(raw) {
 function removeName(idx) {
   state.names.splice(idx, 1);
   state.drawnNames = state.drawnNames.filter(n => state.names.includes(n));
+  sanitizeRepeatNames();
   renderNames();
   updateDrawBtn();
   if (state.currentMode === 'wheel') drawWheel();
@@ -332,7 +358,11 @@ function renderStages() {
    ================================================================ */
 /** Participantes ainda elegíveis (nunca repetem após sorteados) */
 function getPool() {
-  return state.names.filter(n => !state.drawnNames.includes(n));
+  const remaining = state.names.filter(n => !state.drawnNames.includes(n));
+  if (!dom.removeDrawnOpt.checked) return [...state.names];
+  if (remaining.length > 0) return remaining;
+  if (state.repeatNames.length > 0) return [...state.repeatNames];
+  return [];
 }
 
 /** Nomes exibidos na roda/bolhas: todos ou só os restantes */
@@ -404,7 +434,14 @@ function updateDrawBtn() {
 
   if (state.names.length  === 0) { dom.drawStatus.textContent = 'Adicione participantes para sortear'; return; }
   if (state.stages.length === 0) { dom.drawStatus.textContent = 'Adicione etapas para sortear'; return; }
-  if (pool.length         === 0) { dom.drawStatus.textContent = 'Todos sorteados! Limpe o histórico para reiniciar.'; return; }
+  if (pool.length === 0) {
+    if (state.drawnNames.length === state.names.length && state.drawnStages.length < state.stages.length) {
+      dom.drawStatus.textContent = 'Sem participantes disponíveis. Reinsira nomes para as etapas restantes.';
+      return;
+    }
+    dom.drawStatus.textContent = 'Todos sorteados! Limpe o histórico para reiniciar.';
+    return;
+  }
   if (isCards) {
     dom.drawStatus.textContent = `${pool.length} carta(s) — sorteio único de todos os participantes restantes`;
     return;
@@ -817,7 +854,6 @@ async function startCardsDraw() {
 
   state.isSpinning = false;
   showResultsBatch(pairs);
-  initCards();
 }
 
 /* ================================================================
@@ -976,13 +1012,30 @@ async function startBubblesDraw() {
 function handleDraw() {
   if (state.isSpinning) return;
   const pool = getPool();
-  if (!pool.length) return;
+
+  if (!pool.length) {
+    if (state.drawnNames.length === state.names.length && state.drawnStages.length < state.stages.length) {
+      openRepeatModal();
+    }
+    return;
+  }
+
+  if (pool.length === 1 && state.currentMode !== 'cards') {
+    state.isSpinning = true;
+    dom.resultBox.classList.add('hidden');
+    const winner = pool[0];
+    const stage = pickStage();
+    showResult(winner, stage);
+    state.isSpinning = false;
+    return;
+  }
 
   state.isSpinning = true;
   if (state.currentMode !== 'cards') dom.resultBox.classList.add('hidden');
   dom.drawBtn.disabled = true;
 
   if (state.currentMode === 'cards') initCards();
+  if (state.currentMode === 'bubbles') initBubbles();
 
   switch (state.currentMode) {
     case 'wheel':   startWheelDraw();  break;
@@ -995,19 +1048,145 @@ function handleDraw() {
 /* ================================================================
    MODAL DE IMPORTAÇÃO
    ================================================================ */
-function openImport()  { dom.importModal.classList.remove('hidden'); dom.importTextarea.focus(); }
-function closeImport() { dom.importModal.classList.add('hidden'); dom.importTextarea.value = ''; }
+function openModal(modal) {
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-active');
+}
+function closeModal(modal) {
+  modal.classList.add('hidden');
+  document.body.classList.remove('modal-active');
+}
+
+function closeImport() {
+  closeModal(dom.importModal);
+  dom.importTextarea.value = '';
+}
+
+function closeRepeatModal() {
+  closeModal(dom.repeatModal);
+  dom.repeatList.innerHTML = '';
+}
+
+function closeConfirmModal() {
+  closeModal(dom.confirmModal);
+  dom.confirmModal.dataset.showCancel = '1';
+  state.pendingConfirm = null;
+}
+
+function showConfirmModal({ title = 'Confirmação', message = '', confirmText = 'Sim', cancelText = 'Cancelar', onConfirm = null, onCancel = null, showCancel = true }) {
+  state.pendingConfirm = { onConfirm, onCancel };
+  dom.confirmModalTitle.textContent = title;
+  dom.confirmModalMsg.textContent = message;
+  dom.confirmModalConfirm.textContent = confirmText;
+  dom.confirmModalCancel.textContent = cancelText;
+  dom.confirmModal.dataset.showCancel = showCancel ? '1' : '0';
+  openModal(dom.confirmModal);
+  if (dom.confirmModalConfirm) dom.confirmModalConfirm.focus();
+}
+
+function showAlertModal(message, title = 'Atenção') {
+  showConfirmModal({
+    title,
+    message,
+    confirmText: 'OK',
+    showCancel: false,
+    onConfirm: closeConfirmModal,
+  });
+}
+
+function confirmModalYes() {
+  if (state.pendingConfirm && typeof state.pendingConfirm.onConfirm === 'function') {
+    state.pendingConfirm.onConfirm();
+  }
+  closeConfirmModal();
+}
+
+function confirmModalNo() {
+  if (state.pendingConfirm && typeof state.pendingConfirm.onCancel === 'function') {
+    state.pendingConfirm.onCancel();
+  }
+  closeConfirmModal();
+}
+
+function openRepeatModal() {
+  const remainingStages = state.stages.length - state.drawnStages.length;
+  if (remainingStages <= 0 || !state.names.length) {
+    return;
+  }
+
+  openModal(dom.repeatModal);
+  dom.repeatModalDesc.textContent = `Ainda restam ${remainingStages} etapa(s). Selecione os nomes que podem voltar ao sorteio:`;
+
+  dom.repeatList.innerHTML = state.names.map((name, index) => {
+    const checked = state.repeatNames.length === 0 || state.repeatNames.includes(name);
+    return `
+      <label class="repeat-item">
+        <input type="checkbox" name="repeatName" value="${esc(name)}" ${checked ? 'checked' : ''} />
+        <span>${esc(name)}</span>
+      </label>`;
+  }).join('');
+
+  updateRepeatConfirmState();
+}
+
+function updateRepeatConfirmState() {
+  const checked = dom.repeatList.querySelectorAll('input[name="repeatName"]:checked').length;
+  dom.confirmRepeat.disabled = checked === 0;
+}
+
+function confirmRepeatSelection() {
+  const selected = [...dom.repeatList.querySelectorAll('input[name="repeatName"]:checked')].map(el => el.value);
+  state.repeatNames = selected.filter(name => state.names.includes(name));
+  if (!state.repeatNames.length) {
+    return;
+  }
+  closeRepeatModal();
+  updateDrawBtn();
+  if (state.currentMode === 'wheel') drawWheel();
+  if (state.currentMode === 'slot') initSlot();
+  if (state.currentMode === 'bubbles') initBubbles();
+}
+
+function openImport(target) {
+  state.importTarget = target || 'names';
+  dom.importModalTitle.textContent = state.importTarget === 'stages'
+    ? '📋 Importar Etapas'
+    : '📋 Importar Participantes';
+  dom.importModalDesc.textContent = state.importTarget === 'stages'
+    ? 'Cole as etapas abaixo, um por linha:'
+    : 'Cole os nomes abaixo, um por linha:';
+  dom.confirmImport.textContent = state.importTarget === 'stages'
+    ? 'Importar Etapas'
+    : 'Importar Nomes';
+  dom.importTextarea.placeholder = state.importTarget === 'stages'
+    ? 'Recepção\nTécnicos\nDiretoria\nMarketing\nAtendimento'
+    : 'João Silva\nMaria Santos\nCarlos Ferreira\nAna Costa\nPedro Alves';
+  openModal(dom.importModal);
+  dom.importTextarea.value = '';
+  dom.importTextarea.focus();
+}
 
 function confirmImport() {
   const lines = dom.importTextarea.value
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l && !state.names.includes(l));
-  lines.forEach(n => state.names.push(n));
-  renderNames();
-  animateBadge(dom.nameCount);
+    .filter(l => l);
+
+  if (state.importTarget === 'stages') {
+    const newStages = lines.filter(stage => stage && !state.stages.includes(stage));
+    newStages.forEach(stage => state.stages.push(stage));
+    renderStages();
+    animateBadge(dom.stageCount);
+  } else {
+    const newNames = lines.filter(name => name && !state.names.includes(name));
+    newNames.forEach(name => state.names.push(name));
+    sanitizeRepeatNames();
+    renderNames();
+    animateBadge(dom.nameCount);
+    if (state.currentMode === 'wheel') drawWheel();
+  }
+
   updateDrawBtn();
-  if (state.currentMode === 'wheel') drawWheel();
   saveState();
   closeImport();
 }
@@ -1090,21 +1269,48 @@ function bindEvents() {
   dom.addNameBtn.addEventListener('click', () => addName());
   dom.nameInput .addEventListener('keydown', e => e.key === 'Enter' && addName());
   dom.clearNamesBtn.addEventListener('click', () => {
-    if (!state.names.length || !confirm('Limpar todos os participantes?')) return;
-    state.names = []; state.drawnNames = [];
-    renderNames(); updateDrawBtn();
-    if (state.currentMode === 'wheel') drawWheel();
-    saveState();
+    if (!state.names.length) return;
+    showConfirmModal({
+      title: 'Limpar participantes',
+      message: 'Deseja realmente limpar todos os participantes?',
+      confirmText: 'Sim, limpar',
+      cancelText: 'Cancelar',
+      onConfirm: () => {
+        state.names = []; state.drawnNames = []; state.repeatNames = [];
+        renderNames(); updateDrawBtn();
+        if (state.currentMode === 'wheel') drawWheel();
+        saveState();
+      }
+    });
   });
-  dom.importNamesBtn.addEventListener('click', openImport);
+  dom.importNamesBtn.addEventListener('click', () => openImport('names'));
+  dom.importStagesBtn.addEventListener('click', () => openImport('stages'));
+
+  dom.closeRepeatModal.addEventListener('click', closeRepeatModal);
+  dom.cancelRepeat.addEventListener('click', closeRepeatModal);
+  dom.confirmRepeat.addEventListener('click', confirmRepeatSelection);
+  dom.repeatList.addEventListener('change', updateRepeatConfirmState);
+
+  dom.closeConfirmModal.addEventListener('click', closeConfirmModal);
+  dom.confirmModalCancel.addEventListener('click', confirmModalNo);
+  dom.confirmModalConfirm.addEventListener('click', confirmModalYes);
+  dom.confirmModal.addEventListener('click', e => { if (e.target === dom.confirmModal) closeConfirmModal(); });
 
   // Etapas
   dom.addStageBtn.addEventListener('click', () => addStage());
   dom.stageInput .addEventListener('keydown', e => e.key === 'Enter' && addStage());
   dom.clearStagesBtn.addEventListener('click', () => {
-    if (!state.stages.length || !confirm('Limpar todas as etapas?')) return;
-    state.stages = [];
-    renderStages(); updateDrawBtn(); saveState();
+    if (!state.stages.length) return;
+    showConfirmModal({
+      title: 'Limpar etapas',
+      message: 'Deseja realmente limpar todas as etapas?',
+      confirmText: 'Sim, limpar',
+      cancelText: 'Cancelar',
+      onConfirm: () => {
+        state.stages = [];
+        renderStages(); updateDrawBtn(); saveState();
+      }
+    });
   });
 
   // Amostras (podem não existir se a lista já tiver itens)
@@ -1125,14 +1331,22 @@ function bindEvents() {
   // Histórico
   dom.clearHistoryBtn.addEventListener('click', () => {
     if (!state.history.length) return;
-    if (!confirm('Limpar histórico e liberar todos os sorteados?')) return;
-    state.history = [];
-    state.drawnNames = [];
-    state.drawnStages = [];
-    renderHistory();
-    updateDrawBtn();
-    saveState();
-    initCurrentMode();
+    showConfirmModal({
+      title: 'Limpar histórico',
+      message: 'Deseja limpar o histórico e liberar todos os sorteados?',
+      confirmText: 'Sim, limpar',
+      cancelText: 'Cancelar',
+      onConfirm: () => {
+        state.history = [];
+        state.drawnNames = [];
+        state.drawnStages = [];
+        state.repeatNames = [];
+        renderHistory();
+        updateDrawBtn();
+        saveState();
+        initCurrentMode();
+      }
+    });
   });
 
   dom.removeDrawnOpt.addEventListener('change', () => {
@@ -1148,9 +1362,21 @@ function bindEvents() {
   dom.closeImportModal.addEventListener('click', closeImport);
   dom.cancelImport    .addEventListener('click', closeImport);
   dom.confirmImport   .addEventListener('click', confirmImport);
+  dom.repeatModal    .addEventListener('click', e => { if (e.target === dom.repeatModal) closeRepeatModal(); });
   dom.importModal     .addEventListener('click', e => { if (e.target === dom.importModal) closeImport(); });
   dom.importTextarea  .addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.ctrlKey) confirmImport();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!dom.confirmModal.classList.contains('hidden')) return closeConfirmModal();
+      if (!dom.repeatModal.classList.contains('hidden')) return closeRepeatModal();
+      if (!dom.importModal.classList.contains('hidden')) return closeImport();
+    }
+    if (e.key === 'Enter' && !dom.confirmModal.classList.contains('hidden')) {
+      confirmModalYes();
+    }
   });
 
   // Redimensionamento

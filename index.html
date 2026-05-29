@@ -98,6 +98,7 @@
             </div>
           </div>
           <div class="card-footer">
+            <button class="link-btn" id="importStagesBtn">📋 Importar lista</button>
             <button class="link-btn danger" id="clearStagesBtn">🗑️ Limpar tudo</button>
           </div>
         </div>
@@ -211,6 +212,16 @@
         <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
       </aside>
 
+      <div class="history-card">
+        <div class="history-header">
+          <h3>📜 Histórico de Sorteios</h3>
+          <button class="link-btn danger sm" id="clearHistoryBtn">Limpar</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">Nenhum sorteio realizado ainda...</div>
+        </div>
+      </div>
+
       </div><!-- /draw-layout -->
 
       <!-- DRAW CONTROLS -->
@@ -234,17 +245,6 @@
         <div class="draw-status" id="drawStatus">Configure participantes e etapas primeiro</div>
       </div>
 
-      <!-- HISTORY -->
-      <div class="history-card">
-        <div class="history-header">
-          <h3>📜 Histórico de Sorteios</h3>
-          <button class="link-btn danger sm" id="clearHistoryBtn">Limpar</button>
-        </div>
-        <div class="history-list" id="historyList">
-          <div class="history-empty">Nenhum sorteio realizado ainda...</div>
-        </div>
-      </div>
-
     </section><!-- /panel-draw -->
 
   </main>
@@ -253,15 +253,44 @@
   <div class="modal-backdrop hidden" id="importModal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>📋 Importar Participantes</h3>
+        <h3 id="importModalTitle">📋 Importar Participantes</h3>
         <button class="modal-close" id="closeImportModal">✕</button>
       </div>
-      <p class="modal-desc">Cole os nomes abaixo, <strong>um por linha</strong>:</p>
+      <p class="modal-desc" id="importModalDesc">Cole os nomes abaixo, <strong>um por linha</strong>:</p>
       <textarea class="field-textarea" id="importTextarea" rows="10"
         placeholder="João Silva&#10;Maria Santos&#10;Carlos Ferreira&#10;Ana Costa&#10;Pedro Alves&#10;..."></textarea>
       <div class="modal-footer">
-        <button class="btn-ghost" id="cancelImport">Cancelar</button>
-        <button class="btn-add" id="confirmImport">Importar Nomes</button>
+        <button type="button" class="btn-ghost" id="cancelImport">Cancelar</button>
+        <button type="button" class="btn-add" id="confirmImport">Importar Nomes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="repeatModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🔁 Reinserir participantes</h3>
+        <button type="button" class="modal-close" id="closeRepeatModal">✕</button>
+      </div>
+      <p class="modal-desc" id="repeatModalDesc">Ainda há etapas para sortear. Selecione os nomes que podem voltar ao sorteio:</p>
+      <div class="repeat-list" id="repeatList"></div>
+      <div class="modal-footer repeat-footer">
+        <button type="button" class="btn-ghost" id="cancelRepeat">Cancelar</button>
+        <button type="button" class="btn-add" id="confirmRepeat">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="confirmModal" data-show-cancel="1">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="confirmModalTitle">Confirmação</h3>
+        <button type="button" class="modal-close" id="closeConfirmModal">✕</button>
+      </div>
+      <p class="modal-desc" id="confirmModalMsg">Mensagem</p>
+      <div class="modal-footer confirm-footer">
+        <button type="button" class="btn-ghost" id="confirmModalCancel">Cancelar</button>
+        <button type="button" class="btn-add" id="confirmModalConfirm">Sim</button>
       </div>
     </div>
   </div>
