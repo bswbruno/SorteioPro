@@ -43,8 +43,8 @@ const BUBBLE_COLORS = [
   'rgba(184,184,255,.75)','rgba(253,121,168,.75)',
   'rgba(77,150,255,.75)','rgba(107,203,119,.75)',
 ];
-const SAMPLE_NAMES  = ['Alice','Bruno','Carlos','Diana','Eduardo','Fernanda','Gabriel','Helena'];
-const SAMPLE_STAGES = ['Apresentação','Dinâmica','Intervalo','Encerramento','Votação'];
+const SAMPLE_NAMES  = ['Bruno','Lucas Marinho','Gabriel Bonfim','Lucas Correa','Henrique', 'Ryan'];
+const SAMPLE_STAGES = ['Ambulatório','Emergência','Centro cirúrgico','Internação','Votação'];
 const LS_KEY = 'sorteioPro_v2';
 
 /* ───────────────────────────────────────────────
