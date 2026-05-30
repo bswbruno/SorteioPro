@@ -672,7 +672,7 @@ function drawWheel() {
     ctx.fillStyle = isDark() ? '#7777aa' : '#666688';
     ctx.font = 'bold 16px Nunito, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Adicione participantes!', cx, cy);
+    ctx.fillText('Adicione participantes!', cx, cy - 50);
     return;
   }
 
